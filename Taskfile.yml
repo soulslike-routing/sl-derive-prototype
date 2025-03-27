@@ -3,4 +3,10 @@ version: '3'
 tasks:
   build:
     cmds:
-      - wasm-pack build
+      - wasm-pack build  --release
+
+  exportAsBase64:
+    dir: '.'
+    cmds:
+      - task: build
+      - base64 -w 0 pkg/sl_derive_bg.wasm > pkg/sl_derive_64.txt

@@ -35,4 +35,4 @@ const alreadyUpdatedState = {
     }
 }
 
-console.log(wasm.derive_current_location(spec, model, state, alreadyUpdatedState));
+console.log(wasm.derive(spec, model, state, alreadyUpdatedState));

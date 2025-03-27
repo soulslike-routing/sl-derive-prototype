@@ -11,7 +11,7 @@ use wasm_bindgen::prelude::*;
 
 // todo also consider lines for gate areas
 #[wasm_bindgen]
-pub fn derive_current_location(spec: &JsValue, model: &JsValue, state: &JsValue, already_updated_state_this_tick: &JsValue) -> Result<String, JsValue> {
+pub fn derive(spec: &JsValue, model: &JsValue, state: &JsValue, already_updated_state_this_tick: &JsValue) -> Result<String, JsValue> {
     let radius_to_check_in_around_player: f64 = 4.0;
     let point_radius: f64 = 0.5;
 
