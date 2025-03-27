@@ -10,3 +10,8 @@ tasks:
     cmds:
       - task: build
       - base64 -w 0 pkg/sl_derive_bg.wasm > pkg/sl_derive_64.txt
+
+  buildNoWasmBindgen:
+    cmds:
+      - cargo build --release --target wasm32-unknown-unknown
+      - base64 -w 0 target/wasm32-unknown-unknown/release/sl_derive.wasm > wasm_base64.txt
