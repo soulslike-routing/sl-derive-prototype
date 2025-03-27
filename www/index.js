@@ -66,25 +66,31 @@ function deallocGuestMemory(ptr, len, instance) {
 
 // Invoke the `upper` function from the module
 // and log the result to the console.
-function upper(input, instance) {
+function upper(input1, input2, instance) {
     // transform the input string into its UTF-8
     // representation
-    var bytes = new TextEncoder("utf-8").encode(input);
+    var bytes = new TextEncoder("utf-8").encode(input1);
+    var bytes2 = new TextEncoder("utf-8").encode(input2);
     // copy the contents of the string into
     // the module's memory
     var ptr = copyMemory(bytes, instance);
+    var ptr2 = copyMemory(bytes2, instance);
     // call the module's `upper` function and
     // get the offset into the memory where the
     // module wrote the result string
     var res_ptr = instance.exports.upper(ptr, bytes.length);
+    var res_ptr2 = instance.exports.lower(ptr2, bytes2.length);
     // read the string from the module's memory,
     // store it, and log it to the console
     var result = readString(res_ptr, bytes.length, instance);
     console.log(result);
+    var result2 = readString(res_ptr2, bytes2.length, instance);
+    console.log(result2);
     // the JavaScript runtime took ownership of the
     // data returned by the module, which did not
     // deallocate it - so we need to clean it up
     deallocGuestMemory(res_ptr, bytes.length, instance);
+    deallocGuestMemory(res_ptr2, bytes2.length, instance);
 }
 
 
@@ -98,5 +104,5 @@ function upper(input, instance) {
     const mod = new WebAssembly.Module(bytes);
     const instance = await WebAssembly.instantiate(mod, {});
 
-    upper("this should be uppercase", instance);
+    upper("this should be uppercase", "AND THIS LOWERCASE", instance);
 })();

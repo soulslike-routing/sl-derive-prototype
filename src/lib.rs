@@ -181,4 +181,24 @@ pub unsafe fn upper(ptr: *mut u8, len: usize) -> *mut u8 {
     ptr
 }
 
-
+#[no_mangle]
+pub unsafe fn lower(ptr: *mut u8, len: usize) -> *mut u8 {
+    // create a `Vec<u8>` from the pointer and length
+    // here we could also use Rust's excellent FFI
+    // libraries to read a string, but for simplicity,
+    // we are using the same method as for plain byte arrays
+    let data = Vec::from_raw_parts(ptr, len, len);
+    // read a Rust `String` from the byte array,
+    let input_str = String::from_utf8(data).unwrap();
+    // transform the string to uppercase, then turn it into owned bytes
+    let mut lower = input_str.to_ascii_lowercase().as_bytes().to_owned();
+    let ptr = lower.as_mut_ptr();
+    // take ownership of the memory block where the result string
+    // is written and ensure its destructor is not
+    // called whe the object goes out of scope
+    // at the end of the function
+    std::mem::forget(lower);
+    // return the pointer to the uppercase string
+    // so the runtime can read data from this offset
+    ptr
+}
