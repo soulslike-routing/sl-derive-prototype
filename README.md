@@ -24,7 +24,6 @@ At the moment, each function takes the same inputs, consisting of:
  - The state before this tick
  - The state-updates we could already get in this tick.
 
-They are all passed in as serialized json in a WebAssembly.Memory object.
 The functions should then load and parse those objects if needed, compute the new state, 
 which is probably always a foreign id (uuid) and then also store that in a Memory object, which
 is then returned to the javascript caller.

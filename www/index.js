@@ -1,22 +1,38 @@
 import * as wasm from "sl-derive";
 
-wasm.greet();
-
-
-const obj0 = {
-    user: {
-        name: "userA",
-        age: 30
+function replacer(key, value) {
+    if(value instanceof Map) {
+        return {
+            dataType: 'Map',
+            value: Array.from(value.entries()),
+        };
+    } else {
+        return value;
     }
-};
+}
 
-const obj1 = {
-    user: {
-        nested: {
-            name: "nested",
-            age: 30
+function reviver(key, value) {
+    if(typeof value === 'object' && value !== null) {
+        if (value.dataType === 'Map') {
+            return new Map(value.value);
         }
     }
-};
+    return value;
+}
 
-console.log(wasm.process_nested_js_object(obj0, obj1)); // "User: Alice, Age: 30"
+const spec = {};
+const modelString = {/*Paste Model here to test!*/};
+
+const model = JSON.parse(JSON.stringify(modelString), reviver);
+const state = {};
+const alreadyUpdatedState = {
+    player: {
+        position: {
+            x: -52,
+            y: -59,
+            z: 55
+        }
+    }
+}
+
+console.log(wasm.derive_current_location(spec, model, state, alreadyUpdatedState));
