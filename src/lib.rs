@@ -153,24 +153,19 @@ pub unsafe fn dealloc(ptr: *mut u8, size: usize) {
     std::mem::drop(data);
 }
 
-/*
-    Takes in two json objects, both have "message" field
- */
 #[no_mangle]
-pub unsafe fn shorter_message(ptr_a: *mut u8, ptr_b: *mut u8, len_a: usize, len_b: usize) -> *mut u8 {
+pub unsafe fn derive_wrapper(ptr_a: *mut u8, ptr_b: *mut u8, len_a: usize, len_b: usize) -> *mut u8 {
     let data_a = Vec::from_raw_parts(ptr_a, len_a, len_a);
-    let data_b = Vec::from_raw_parts(ptr_b, len_b, len_b);
-
     let input_str_a = String::from_utf8(data_a).unwrap();
-    let input_str_b = String::from_utf8(data_b).unwrap();
-
     let v1: Value = serde_json::from_str(&*input_str_a).expect("couldn't parse json");
-    let message_a: &str = v1.get("message").expect("couldnt read message field").as_str().expect("");
 
+    let data_b = Vec::from_raw_parts(ptr_b, len_b, len_b);
+    let input_str_b = String::from_utf8(data_b).unwrap();
     let v2: Value = serde_json::from_str(&*input_str_b).expect("couldn't parse json");
-    let message_b: &str = v2.get("message").expect("couldnt read message field").as_str().expect("");
 
-    let mut shorter = (if message_a.chars().count() < message_b.chars().count() { message_a } else{ message_b}).as_bytes().to_owned();
+
+    let mut shorter = shorter_message(v1, v2).as_bytes().to_owned();
+
 
     let mut raw_bytes = Vec::with_capacity(4 + shorter.len());
     raw_bytes.extend_from_slice(&shorter.len().to_le_bytes());
@@ -179,4 +174,12 @@ pub unsafe fn shorter_message(ptr_a: *mut u8, ptr_b: *mut u8, len_a: usize, len_
     let ptr = raw_bytes.as_mut_ptr();
     std::mem::forget(raw_bytes);
     ptr
+}
+
+#[no_mangle]
+pub unsafe fn shorter_message(v1: Value, v2: Value) -> String {
+    let message_a: &str = v1.get("message").expect("couldnt read message field").as_str().expect("");
+    let message_b: &str = v2.get("message").expect("couldnt read message field").as_str().expect("");
+
+    (if message_a.chars().count() < message_b.chars().count() { message_a.parse().unwrap() } else{ message_b.parse().unwrap() })
 }

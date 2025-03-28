@@ -76,7 +76,7 @@ function shorter(input1, input2, instance) {
     var ptr = copyMemory(bytes, instance);
     var ptr2 = copyMemory(bytes2, instance);
 
-    var res_ptr = instance.exports.shorter_message(ptr, ptr2, bytes.length, bytes2.length);
+    var res_ptr = instance.exports.derive_wrapper(ptr, ptr2, bytes.length, bytes2.length);
     // ptr2 is invalid from here on out
 
     var result = readStringWith4PrependedLenghtBytes(res_ptr, instance);
