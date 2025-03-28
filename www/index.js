@@ -37,18 +37,6 @@ const alreadyUpdatedState = {
 
 const base64 = "";
 
-// Copy `data` into the `instance` exported memory buffer.
-function copyMemory(data, instance) {
-    // the `alloc` function returns an offset in
-    // the module's memory to the start of the block
-    var ptr = instance.exports.alloc(data.length);
-    // create a typed `ArrayBuffer` at `ptr` of proper size
-    var mem = new Uint8Array(instance.exports.memory.buffer, ptr, data.length);
-    // copy the content of `data` into the memory buffer
-    mem.set(new Uint8Array(data));
-    // return the pointer
-    return ptr;
-}
 
 function readStringWith4PrependedLenghtBytes(ptr, instance) {
     var memory = new Uint8Array(instance.exports.memory.buffer);
@@ -64,34 +52,33 @@ function readStringWith4PrependedLenghtBytes(ptr, instance) {
 }
 
 
-function deallocGuestMemory(ptr, len, instance) {
-    // call the module's `dealloc` function
-    instance.exports.dealloc(ptr, len);
+function call_wasm_derive(input1, input2, instance) {
+    const input1AsString = JSON.stringify(input1);
+    var input1AsBytes = new TextEncoder("utf-8").encode(input1AsString);
+    let ptrToInput1WasmMemory = instance.exports.alloc(input1AsBytes.length);
+    let memoryBuffer1 = new Uint8Array(instance.exports.memory.buffer, ptrToInput1WasmMemory, input1AsBytes.length);
+    memoryBuffer1.set(new Uint8Array(input1AsBytes));
+
+    const input2AsString = JSON.stringify(input2);
+    var input2AsBytes = new TextEncoder("utf-8").encode(input2AsString);
+    let ptrToInput2WasmMemory = instance.exports.alloc(input2AsBytes.length);
+    let memoryBuffer2 = new Uint8Array(instance.exports.memory.buffer, ptrToInput2WasmMemory, input2AsBytes.length);
+    memoryBuffer2.set(new Uint8Array(input2AsBytes));
+
+    // Actually call into wasm derive
+    let pointerToResultStruct = instance.exports.derive_wrapper(
+        ptrToInput1WasmMemory,
+        ptrToInput2WasmMemory,
+        input1AsBytes.length,
+        input2AsBytes.length
+    );
+
+    const resultStruct = readStringWith4PrependedLenghtBytes(pointerToResultStruct, instance);
+    instance.exports.dealloc(pointerToResultStruct, 4 + resultStruct.bytes);
+    return resultStruct.string;
 }
 
-function shorter(input1, input2, instance) {
-    var bytes = new TextEncoder("utf-8").encode(input1);
-    var bytes2 = new TextEncoder("utf-8").encode(input2);
-
-    var ptr = copyMemory(bytes, instance);
-    var ptr2 = copyMemory(bytes2, instance);
-
-    var res_ptr = instance.exports.derive_wrapper(ptr, ptr2, bytes.length, bytes2.length);
-    // ptr2 is invalid from here on out
-
-    var result = readStringWith4PrependedLenghtBytes(res_ptr, instance);
-    console.log(result.string);
-
-    // the JavaScript runtime took ownership of the
-    // data returned by the module, which did not
-    // deallocate it - so we need to clean it upngth, instance);
-    // but the original data should have gotten cleaned up already
-
-    deallocGuestMemory(res_ptr, 4 + result.bytes, instance);
-}
-
-
-(async () => {
+async function wasm_instance_from_b64_string(b64wasm) {
     const binaryString = atob(base64);
     const bytes = new Uint8Array(binaryString.length);
     for (let i = 0; i < binaryString.length; i++) {
@@ -99,7 +86,13 @@ function shorter(input1, input2, instance) {
     }
 
     const mod = new WebAssembly.Module(bytes);
-    const instance = await WebAssembly.instantiate(mod, {});
+    return await WebAssembly.instantiate(mod, {});
+}
 
-    shorter("{\"message\": \"THIS IS VERY LONG\"}", "{\"message\": \"AND THIS SHORT\"}", instance);
+(async () => {
+    let wasm_instance = await wasm_instance_from_b64_string(base64);
+    let obj1 = {message: "THIS IS VERY LONG"}
+    let obj2 = {message: "AND THIS SHORT"}
+    const deriveString = call_wasm_derive(obj1, obj2, wasm_instance);
+    console.log(deriveString);
 })();
