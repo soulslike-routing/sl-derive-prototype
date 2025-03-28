@@ -1,3 +1,5 @@
+const base64 = "";
+
 function replacer(key, value) {
     if(value instanceof Map) {
         return {
@@ -19,7 +21,7 @@ function reviver(key, value) {
 }
 
 const spec = {};
-const modelString = {/*Paste Model here to test!*/};
+const modelString = {};
 
 const model = JSON.parse(JSON.stringify(modelString), reviver);
 const state = {};
@@ -32,11 +34,6 @@ const alreadyUpdatedState = {
         }
     }
 }
-
-//console.log(wasm.derive(spec, model, state, alreadyUpdatedState));
-
-const base64 = "";
-
 
 function readStringWith4PrependedLengthBytes(ptr, instance) {
     var memory = new Uint8Array(instance.exports.memory.buffer);
@@ -52,7 +49,7 @@ function readStringWith4PrependedLengthBytes(ptr, instance) {
 }
 
 function jsObjectIntoWasmMemory(jsObject, instance) {
-    const jsObjectAsString = JSON.stringify(jsObject);
+    const jsObjectAsString = JSON.stringify(jsObject, replacer);
     const jsObjectAsBytes = new TextEncoder("utf-8").encode(jsObjectAsString);
     let ptrToWasmMemory = instance.exports.alloc(jsObjectAsBytes.length);
     let memoryBuffer = new Uint8Array(instance.exports.memory.buffer, ptrToWasmMemory, jsObjectAsBytes.length);
@@ -60,16 +57,28 @@ function jsObjectIntoWasmMemory(jsObject, instance) {
     return {ptr: ptrToWasmMemory, length: jsObjectAsBytes.length};
 }
 
-function call_wasm_derive(input1, input2, instance) {
+function call_wasm_derive(
+    input1,
+    input2,
+    input3,
+    input4,
+    instance
+) {
     let input1Struct = jsObjectIntoWasmMemory(input1, instance);
     let input2Struct = jsObjectIntoWasmMemory(input2, instance);
+    let input3Struct = jsObjectIntoWasmMemory(input3, instance);
+    let input4Struct = jsObjectIntoWasmMemory(input4, instance);
 
     // Actually call into wasm derive
     let pointerToResultStruct = instance.exports.derive_wrapper(
         input1Struct.ptr,
         input1Struct.length,
         input2Struct.ptr,
-        input2Struct.length
+        input2Struct.length,
+        input3Struct.ptr,
+        input3Struct.length,
+        input4Struct.ptr,
+        input4Struct.length
     );
 
     const resultStruct = readStringWith4PrependedLengthBytes(pointerToResultStruct, instance);
@@ -90,8 +99,6 @@ async function wasm_instance_from_b64_string(b64wasm) {
 
 (async () => {
     let wasm_instance = await wasm_instance_from_b64_string(base64);
-    let obj1 = {message: "THIS IS VERY LONG"}
-    let obj2 = {message: "AND THIS SHORT"}
-    const deriveString = call_wasm_derive(obj1, obj2, wasm_instance);
+    const deriveString = call_wasm_derive(spec, model, state, alreadyUpdatedState, wasm_instance);
     console.log(deriveString);
 })();

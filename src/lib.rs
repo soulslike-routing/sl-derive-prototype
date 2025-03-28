@@ -1,62 +1,78 @@
+use std::collections::HashMap;
 use serde::{Deserialize, Deserializer};
 use serde_json::Value;
+
 mod utils;
 
-/*
+
 // todo also consider lines for gate areas
-#[wasm_bindgen]
-pub fn derive(spec: &JsValue, model: &JsValue, state: &JsValue, already_updated_state_this_tick: &JsValue) -> Result<String, JsValue> {
+#[no_mangle]
+pub fn derive(spec: Value, model: Value, state: Value, already_updated_state_this_tick: Value) -> String {
     let radius_to_check_in_around_player: f64 = 4.0;
     let point_radius: f64 = 0.5;
 
     // prep: Compute distances for all points, in respect to their radius
-    let player_state = Reflect::get(already_updated_state_this_tick, &JsValue::from_str("player"))?;
-    let player_coords = Reflect::get(&player_state, &JsValue::from_str("position"))?;
+    let player_state = already_updated_state_this_tick.get("player").expect("couldnt read player field");
+    let player_coords = player_state.get("position").expect("couldnt read position field");
 
-    let player_coords_x: f64 = Reflect::get(&player_coords, &JsValue::from_str("x"))?
+    let player_coords_x: f64 = player_coords.get("x").expect("couldnt read x field")
         .as_f64()
-        .ok_or_else(|| JsValue::from_str("Missing 'player.position.x' field"))?;
+        .expect("Couldn't convert x to f64");
 
-    let player_coords_y: f64 = Reflect::get(&player_coords, &JsValue::from_str("y"))?
+    let player_coords_y: f64 = player_coords.get("y").expect("couldnt read y field")
         .as_f64()
-        .ok_or_else(|| JsValue::from_str("Missing 'player.position.y' field"))?;
+        .expect("Couldn't convert y to f64");
 
-    let player_coords_z: f64 = Reflect::get(&player_coords, &JsValue::from_str("z"))?
+    let player_coords_z: f64 = player_coords.get("z").expect("couldnt read z field")
         .as_f64()
-        .ok_or_else(|| JsValue::from_str("Missing 'player.position.z' field"))?;
+        .expect("Couldn't convert z to f64");
 
     struct NearbyPoint {
         coords: Vec<f64>,
         is_gate: bool,
-        area_index: u32,
-        location_index: u32
+        area_index: usize,
+        location_index: usize
     };
     let mut points_nearby: Vec<NearbyPoint> = Vec::new();
 
-    let model_areas = Array::from(&Reflect::get(model, &JsValue::from_str("areas"))?);
-    for area_index in 0..model_areas.length() {
-        let area = model_areas.get(area_index);
-        let locations_in_current_area = Array::from(&Reflect::get(&area, &JsValue::from_str("locations"))?);
-        for location_index in 0..locations_in_current_area.length() {
-            let location = locations_in_current_area.get(location_index);
-            let point_cloud = Reflect::get(&location, &JsValue::from_str("pointCloud"))?;
-            let points = Map::from(Reflect::get(&point_cloud, &JsValue::from_str("points"))?);
+    let model_areas = model["areas"].as_array().expect("couldnt convert areas to array");
+    for area_index in 0..model_areas.len() {
+        let area = &model_areas[area_index];
+        let locations_in_current_area = area["locations"].as_array().expect("couldnt convert locations to array");
+        for location_index in 0..locations_in_current_area.len() {
+            let location = locations_in_current_area.get(location_index).expect("couldnt read actual location");
+            let point_cloud = &location["pointCloud"];
+
+            let mut points: HashMap<String, Value> = HashMap::new();
+            if let Some(value_array) = point_cloud["points"]["value"].as_array() {
+                for pair in value_array.iter() {
+                    if let Some(arr) = pair.as_array() {
+                        if arr.len() == 2 {
+                            let key_str = arr[0].as_str().unwrap();
+                            let parsed_key: Value = serde_json::from_str(key_str).unwrap(); // Parse the key JSON string
+                            let key_json = serde_json::to_string(&parsed_key).unwrap(); // Normalize key
+
+                            let value: Value = serde_json::from_value(arr[1].clone()).unwrap();
+                            points.insert(key_json, value);
+                        }
+                    }
+                }
+            }
+
             let point_keys = points.keys();
             for point_key in point_keys {
-                let point = points.get(&point_key?);
-                let point_coords = Reflect::get(&point, &JsValue::from_str("coords"))?;
-                let point_coords_x: f64 = Reflect::get(&point_coords, &JsValue::from_str("x"))?
+                let point = &points[point_key];
+                let point_coords = point.get("coords").expect("could read coords field");
+                let point_coords_x: f64 = point_coords.get("x").expect("couldnt read x field")
                     .as_f64()
-                    .ok_or_else(|| JsValue::from_str("Missing 'point_coords_x' field"))?;
+                    .expect("Couldn't convert x to f64");
+                let point_coords_y: f64 = point_coords.get("y").expect("couldnt read y field")
+                    .as_f64()
+                    .expect("Couldn't convert y to f64");
 
-                let point_coords_y: f64 = Reflect::get(&point_coords, &JsValue::from_str("y"))?
+                let point_coords_z: f64 = point_coords.get("z").expect("couldnt read z field")
                     .as_f64()
-                    .ok_or_else(|| JsValue::from_str("Missing 'player_coords_y' field"))?;
-
-                let point_coords_z: f64 = Reflect::get(&point_coords, &JsValue::from_str("z"))?
-                    .as_f64()
-                    .ok_or_else(|| JsValue::from_str("Missing 'player_coords_z' field"))?;
-                // return Ok(format!("Point coords: x {}, y {}, z {}", point_coords_x, point_coords_y, point_coords_z));
+                    .expect("Couldn't convert z to f64");
 
                 let distance = (
                     (player_coords_x - point_coords_x).powi(2) +
@@ -65,9 +81,7 @@ pub fn derive(spec: &JsValue, model: &JsValue, state: &JsValue, already_updated_
                 ).sqrt() - radius_to_check_in_around_player - point_radius;
 
                 if distance < 0.0 {
-                    let is_gate: bool = Reflect::get(&location, &JsValue::from_str("isGateArea"))?
-                        .as_bool()
-                        .ok_or_else(|| JsValue::from_str("Missing 'isGateArea' field"))?;
+                    let is_gate: bool = location.get("isGateArea").expect("").as_bool().expect("couldnt convert isGateArea to bool");
                     points_nearby.push(NearbyPoint{
                         coords: vec![point_coords_x, point_coords_y, point_coords_z],
                         is_gate,
@@ -82,13 +96,9 @@ pub fn derive(spec: &JsValue, model: &JsValue, state: &JsValue, already_updated_
     // Is there a sphere, that collides and is in a gate area?
     for nearby_point in points_nearby.iter().clone() {
         if nearby_point.is_gate {
-            let area = Array::from(&Reflect::get(model, &JsValue::from_str("areas"))?)
-                .get(nearby_point.area_index);
-            let location = Array::from(&Reflect::get(&area, &JsValue::from_str("locations"))?)
-                .get(nearby_point.location_index);
-            return Ok(Reflect::get(&location, &JsValue::from_str("id"))?
-                .as_string()
-                .ok_or_else(|| JsValue::from_str("Missing 'id' field"))?);
+            let area = &model["areas"][nearby_point.area_index];
+            let location = &area["locations"][nearby_point.location_index];
+            return String::from(location["id"].as_str().expect("Couldn't convert location id"));
         }
     }
 
@@ -102,7 +112,7 @@ pub fn derive(spec: &JsValue, model: &JsValue, state: &JsValue, already_updated_
         *counter += 1;
     }
     if tracker_map.is_empty() {
-        return Err(JsValue::from("Tracker map is empty"));
+        return String::from("error :(");
     }
     let max_entry = tracker_map.iter()
         .max_by_key(|entry| entry.1)
@@ -111,22 +121,17 @@ pub fn derive(spec: &JsValue, model: &JsValue, state: &JsValue, already_updated_
     if let Some(entry) = max_entry {
         #[derive(Deserialize)]
         struct Indexes {
-            area_index: u32,
-            location_index: u32
+            area_index: usize,
+            location_index: usize
         }
         let parsed_location_index: Indexes = serde_json::from_str(entry.0).expect("JSON was not well-formatted");
 
-        let area = Array::from(&Reflect::get(model, &JsValue::from_str("areas"))?)
-            .get(parsed_location_index.area_index);
-        let location = Array::from(&Reflect::get(&area, &JsValue::from_str("locations"))?)
-            .get(parsed_location_index.location_index);
-        return Ok(Reflect::get(&location, &JsValue::from_str("id"))?
-            .as_string()
-            .ok_or_else(|| JsValue::from_str("Missing 'id' field"))?);
+        let area = &model["areas"][parsed_location_index.area_index];
+        let location = &area["locations"][parsed_location_index.location_index];
+        return String::from(location.get("id").expect("").as_str().expect(""));
     }
-    Err(JsValue::from("What the hell :("))
+    String::from("What the hell:(")
 }
-*/
 
 /// Allocate memory into the module's linear memory
 /// and return the offset to the start of the block.
@@ -143,7 +148,7 @@ pub fn alloc(len: usize) -> *mut u8 {
     std::mem::forget(buf);
     // return the pointer so the runtime
     // can write data at this offset
-    return ptr;
+    ptr
 }
 
 #[no_mangle]
@@ -154,7 +159,12 @@ pub unsafe fn dealloc(ptr: *mut u8, size: usize) {
 }
 
 #[no_mangle]
-pub unsafe fn derive_wrapper(ptr_a: *mut u8, len_a: usize, ptr_b: *mut u8, len_b: usize) -> *mut u8 {
+pub unsafe fn derive_wrapper(
+    ptr_a: *mut u8, len_a: usize,
+    ptr_b: *mut u8, len_b: usize,
+    ptr_c: *mut u8, len_c: usize,
+    ptr_d: *mut u8, len_d: usize,
+) -> *mut u8 {
     let data_a = Vec::from_raw_parts(ptr_a, len_a, len_a);
     let input_str_a = String::from_utf8(data_a).unwrap();
     let v1: Value = serde_json::from_str(&*input_str_a).expect("couldn't parse json");
@@ -163,23 +173,23 @@ pub unsafe fn derive_wrapper(ptr_a: *mut u8, len_a: usize, ptr_b: *mut u8, len_b
     let input_str_b = String::from_utf8(data_b).unwrap();
     let v2: Value = serde_json::from_str(&*input_str_b).expect("couldn't parse json");
 
+    let data_c = Vec::from_raw_parts(ptr_c, len_c, len_c);
+    let input_str_c = String::from_utf8(data_c).unwrap();
+    let v3: Value = serde_json::from_str(&*input_str_c).expect("couldn't parse json");
 
-    let mut shorter = shorter_message(v1, v2).as_bytes().to_owned();
+    let data_d = Vec::from_raw_parts(ptr_d, len_d, len_d);
+    let input_str_d = String::from_utf8(data_d).unwrap();
+    let v4: Value = serde_json::from_str(&*input_str_d).expect("couldn't parse json");
 
 
-    let mut raw_bytes = Vec::with_capacity(4 + shorter.len());
-    raw_bytes.extend_from_slice(&shorter.len().to_le_bytes());
-    raw_bytes.extend_from_slice(&shorter);
+    let derived_result = derive(v1, v2, v3, v4).as_bytes().to_owned();
+
+
+    let mut raw_bytes = Vec::with_capacity(4 + derived_result.len());
+    raw_bytes.extend_from_slice(&derived_result.len().to_le_bytes());
+    raw_bytes.extend_from_slice(&derived_result);
 
     let ptr = raw_bytes.as_mut_ptr();
     std::mem::forget(raw_bytes);
     ptr
-}
-
-#[no_mangle]
-pub unsafe fn shorter_message(v1: Value, v2: Value) -> String {
-    let message_a: &str = v1.get("message").expect("couldnt read message field").as_str().expect("");
-    let message_b: &str = v2.get("message").expect("couldnt read message field").as_str().expect("");
-
-    (if message_a.chars().count() < message_b.chars().count() { message_a.parse().unwrap() } else{ message_b.parse().unwrap() })
 }
