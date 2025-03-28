@@ -84,13 +84,13 @@ function upper(input1, input2, instance) {
     // store it, and log it to the console
     var result = readString(res_ptr, bytes.length, instance);
     console.log(result);
-    var result2 = readString(res_ptr2, bytes2.length, instance);
+    var result2 = readString(res_ptr2, "AND THIS LOWER".length, instance);
     console.log(result2);
     // the JavaScript runtime took ownership of the
     // data returned by the module, which did not
     // deallocate it - so we need to clean it up
     deallocGuestMemory(res_ptr, bytes.length, instance);
-    deallocGuestMemory(res_ptr2, bytes2.length, instance);
+    deallocGuestMemory(res_ptr2, "AND THIS LOWER".length, instance);
 }
 
 
@@ -104,5 +104,5 @@ function upper(input1, input2, instance) {
     const mod = new WebAssembly.Module(bytes);
     const instance = await WebAssembly.instantiate(mod, {});
 
-    upper("this should be uppercase", "AND THIS LOWERCASE", instance);
+    upper("this should be uppercase", "{\"message\": \"AND THIS LOWER\"}", instance);
 })();

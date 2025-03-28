@@ -1,9 +1,6 @@
 use serde::{Deserialize, Deserializer};
-
+use serde_json::Value;
 mod utils;
-
-//use wasm_bindgen::prelude::*;
-
 
 /*
 // todo also consider lines for gate areas
@@ -190,9 +187,12 @@ pub unsafe fn lower(ptr: *mut u8, len: usize) -> *mut u8 {
     let data = Vec::from_raw_parts(ptr, len, len);
     // read a Rust `String` from the byte array,
     let input_str = String::from_utf8(data).unwrap();
+    let v: Value = serde_json::from_str(&*input_str).expect("couldn't parse json");
+    let contained_string: &str = v.get("message").expect("couldnt read message field").as_str().expect("");
     // transform the string to uppercase, then turn it into owned bytes
-    let mut lower = input_str.to_ascii_lowercase().as_bytes().to_owned();
+    let mut lower = contained_string.to_ascii_lowercase().as_bytes().to_owned();
     let ptr = lower.as_mut_ptr();
+    // let mut abc = contained_string.as_bytes().to_owned().as_mut_ptr();
     // take ownership of the memory block where the result string
     // is written and ensure its destructor is not
     // called whe the object goes out of scope
