@@ -38,7 +38,7 @@ const alreadyUpdatedState = {
 const base64 = "";
 
 
-function readStringWith4PrependedLenghtBytes(ptr, instance) {
+function readStringWith4PrependedLengthBytes(ptr, instance) {
     var memory = new Uint8Array(instance.exports.memory.buffer);
 
     const view = new DataView(memory.buffer, ptr, 4);
@@ -51,35 +51,34 @@ function readStringWith4PrependedLenghtBytes(ptr, instance) {
     return { string: str, bytes: length };
 }
 
+function jsObjectIntoWasmMemory(jsObject, instance) {
+    const jsObjectAsString = JSON.stringify(jsObject);
+    const jsObjectAsBytes = new TextEncoder("utf-8").encode(jsObjectAsString);
+    let ptrToWasmMemory = instance.exports.alloc(jsObjectAsBytes.length);
+    let memoryBuffer = new Uint8Array(instance.exports.memory.buffer, ptrToWasmMemory, jsObjectAsBytes.length);
+    memoryBuffer.set(new Uint8Array(jsObjectAsBytes));
+    return {ptr: ptrToWasmMemory, length: jsObjectAsBytes.length};
+}
 
 function call_wasm_derive(input1, input2, instance) {
-    const input1AsString = JSON.stringify(input1);
-    var input1AsBytes = new TextEncoder("utf-8").encode(input1AsString);
-    let ptrToInput1WasmMemory = instance.exports.alloc(input1AsBytes.length);
-    let memoryBuffer1 = new Uint8Array(instance.exports.memory.buffer, ptrToInput1WasmMemory, input1AsBytes.length);
-    memoryBuffer1.set(new Uint8Array(input1AsBytes));
-
-    const input2AsString = JSON.stringify(input2);
-    var input2AsBytes = new TextEncoder("utf-8").encode(input2AsString);
-    let ptrToInput2WasmMemory = instance.exports.alloc(input2AsBytes.length);
-    let memoryBuffer2 = new Uint8Array(instance.exports.memory.buffer, ptrToInput2WasmMemory, input2AsBytes.length);
-    memoryBuffer2.set(new Uint8Array(input2AsBytes));
+    let input1Struct = jsObjectIntoWasmMemory(input1, instance);
+    let input2Struct = jsObjectIntoWasmMemory(input2, instance);
 
     // Actually call into wasm derive
     let pointerToResultStruct = instance.exports.derive_wrapper(
-        ptrToInput1WasmMemory,
-        ptrToInput2WasmMemory,
-        input1AsBytes.length,
-        input2AsBytes.length
+        input1Struct.ptr,
+        input1Struct.length,
+        input2Struct.ptr,
+        input2Struct.length
     );
 
-    const resultStruct = readStringWith4PrependedLenghtBytes(pointerToResultStruct, instance);
+    const resultStruct = readStringWith4PrependedLengthBytes(pointerToResultStruct, instance);
     instance.exports.dealloc(pointerToResultStruct, 4 + resultStruct.bytes);
     return resultStruct.string;
 }
 
 async function wasm_instance_from_b64_string(b64wasm) {
-    const binaryString = atob(base64);
+    const binaryString = atob(b64wasm);
     const bytes = new Uint8Array(binaryString.length);
     for (let i = 0; i < binaryString.length; i++) {
         bytes[i] = binaryString.charCodeAt(i);

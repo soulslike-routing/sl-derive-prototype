@@ -154,7 +154,7 @@ pub unsafe fn dealloc(ptr: *mut u8, size: usize) {
 }
 
 #[no_mangle]
-pub unsafe fn derive_wrapper(ptr_a: *mut u8, ptr_b: *mut u8, len_a: usize, len_b: usize) -> *mut u8 {
+pub unsafe fn derive_wrapper(ptr_a: *mut u8, len_a: usize, ptr_b: *mut u8, len_b: usize) -> *mut u8 {
     let data_a = Vec::from_raw_parts(ptr_a, len_a, len_a);
     let input_str_a = String::from_utf8(data_a).unwrap();
     let v1: Value = serde_json::from_str(&*input_str_a).expect("couldn't parse json");
