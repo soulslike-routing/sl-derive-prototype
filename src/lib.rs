@@ -153,52 +153,30 @@ pub unsafe fn dealloc(ptr: *mut u8, size: usize) {
     std::mem::drop(data);
 }
 
-/// Given a pointer to the start of a byte array and
-/// its length, read a string, create its uppercase
-/// representation, then return the pointer to it
+/*
+    Takes in two json objects, both have "message" field
+ */
 #[no_mangle]
-pub unsafe fn upper(ptr: *mut u8, len: usize) -> *mut u8 {
-    // create a `Vec<u8>` from the pointer and length
-    // here we could also use Rust's excellent FFI
-    // libraries to read a string, but for simplicity,
-    // we are using the same method as for plain byte arrays
-    let data = Vec::from_raw_parts(ptr, len, len);
-    // read a Rust `String` from the byte array,
-    let input_str = String::from_utf8(data).unwrap();
-    // transform the string to uppercase, then turn it into owned bytes
-    let mut upper = input_str.to_ascii_uppercase().as_bytes().to_owned();
-    let ptr = upper.as_mut_ptr();
-    // take ownership of the memory block where the result string
-    // is written and ensure its destructor is not
-    // called whe the object goes out of scope
-    // at the end of the function
-    std::mem::forget(upper);
-    // return the pointer to the uppercase string
-    // so the runtime can read data from this offset
-    ptr
-}
+pub unsafe fn shorter_message(ptr_a: *mut u8, ptr_b: *mut u8, len_a: usize, len_b: usize) -> *mut u8 {
+    let data_a = Vec::from_raw_parts(ptr_a, len_a, len_a);
+    let data_b = Vec::from_raw_parts(ptr_b, len_b, len_b);
 
-#[no_mangle]
-pub unsafe fn lower(ptr: *mut u8, len: usize) -> *mut u8 {
-    // create a `Vec<u8>` from the pointer and length
-    // here we could also use Rust's excellent FFI
-    // libraries to read a string, but for simplicity,
-    // we are using the same method as for plain byte arrays
-    let data = Vec::from_raw_parts(ptr, len, len);
-    // read a Rust `String` from the byte array,
-    let input_str = String::from_utf8(data).unwrap();
-    let v: Value = serde_json::from_str(&*input_str).expect("couldn't parse json");
-    let contained_string: &str = v.get("message").expect("couldnt read message field").as_str().expect("");
-    // transform the string to uppercase, then turn it into owned bytes
-    let mut lower = contained_string.to_ascii_lowercase().as_bytes().to_owned();
-    let ptr = lower.as_mut_ptr();
-    // let mut abc = contained_string.as_bytes().to_owned().as_mut_ptr();
-    // take ownership of the memory block where the result string
-    // is written and ensure its destructor is not
-    // called whe the object goes out of scope
-    // at the end of the function
-    std::mem::forget(lower);
-    // return the pointer to the uppercase string
-    // so the runtime can read data from this offset
+    let input_str_a = String::from_utf8(data_a).unwrap();
+    let input_str_b = String::from_utf8(data_b).unwrap();
+
+    let v1: Value = serde_json::from_str(&*input_str_a).expect("couldn't parse json");
+    let message_a: &str = v1.get("message").expect("couldnt read message field").as_str().expect("");
+
+    let v2: Value = serde_json::from_str(&*input_str_b).expect("couldn't parse json");
+    let message_b: &str = v2.get("message").expect("couldnt read message field").as_str().expect("");
+
+    let mut shorter = (if message_a.chars().count() < message_b.chars().count() { message_a } else{ message_b}).as_bytes().to_owned();
+
+    let mut raw_bytes = Vec::with_capacity(4 + shorter.len());
+    raw_bytes.extend_from_slice(&shorter.len().to_le_bytes());
+    raw_bytes.extend_from_slice(&shorter);
+
+    let ptr = raw_bytes.as_mut_ptr();
+    std::mem::forget(raw_bytes);
     ptr
 }

@@ -50,47 +50,44 @@ function copyMemory(data, instance) {
     return ptr;
 }
 
-// Read a string from the instance's memory.
-function readString(ptr, len, instance) {
-    var m = new Uint8Array(instance.exports.memory.buffer, ptr, len);
+function readStringWith4PrependedLenghtBytes(ptr, instance) {
+    var memory = new Uint8Array(instance.exports.memory.buffer);
+
+    const view = new DataView(memory.buffer, ptr, 4);
+    const length = view.getUint32(0, true); // true -> little-endian
+    console.log(length);
+
     var decoder = new TextDecoder("utf-8");
-    // return a slice of size `len` from the module's
-    // memory, starting at offset `ptr`
-    return decoder.decode(m.slice(0, len));
+
+    var str = decoder.decode(memory.subarray(ptr+4, ptr+4+length));
+    return { string: str, bytes: length };
 }
+
 
 function deallocGuestMemory(ptr, len, instance) {
     // call the module's `dealloc` function
     instance.exports.dealloc(ptr, len);
 }
 
-// Invoke the `upper` function from the module
-// and log the result to the console.
-function upper(input1, input2, instance) {
-    // transform the input string into its UTF-8
-    // representation
+function shorter(input1, input2, instance) {
     var bytes = new TextEncoder("utf-8").encode(input1);
     var bytes2 = new TextEncoder("utf-8").encode(input2);
-    // copy the contents of the string into
-    // the module's memory
+
     var ptr = copyMemory(bytes, instance);
     var ptr2 = copyMemory(bytes2, instance);
-    // call the module's `upper` function and
-    // get the offset into the memory where the
-    // module wrote the result string
-    var res_ptr = instance.exports.upper(ptr, bytes.length);
-    var res_ptr2 = instance.exports.lower(ptr2, bytes2.length);
-    // read the string from the module's memory,
-    // store it, and log it to the console
-    var result = readString(res_ptr, bytes.length, instance);
-    console.log(result);
-    var result2 = readString(res_ptr2, "AND THIS LOWER".length, instance);
-    console.log(result2);
+
+    var res_ptr = instance.exports.shorter_message(ptr, ptr2, bytes.length, bytes2.length);
+    // ptr2 is invalid from here on out
+
+    var result = readStringWith4PrependedLenghtBytes(res_ptr, instance);
+    console.log(result.string);
+
     // the JavaScript runtime took ownership of the
     // data returned by the module, which did not
-    // deallocate it - so we need to clean it up
-    deallocGuestMemory(res_ptr, bytes.length, instance);
-    deallocGuestMemory(res_ptr2, "AND THIS LOWER".length, instance);
+    // deallocate it - so we need to clean it upngth, instance);
+    // but the original data should have gotten cleaned up already
+
+    deallocGuestMemory(res_ptr, 4 + result.bytes, instance);
 }
 
 
@@ -104,5 +101,5 @@ function upper(input1, input2, instance) {
     const mod = new WebAssembly.Module(bytes);
     const instance = await WebAssembly.instantiate(mod, {});
 
-    upper("this should be uppercase", "{\"message\": \"AND THIS LOWER\"}", instance);
+    shorter("{\"message\": \"THIS IS VERY LONG\"}", "{\"message\": \"AND THIS SHORT\"}", instance);
 })();
