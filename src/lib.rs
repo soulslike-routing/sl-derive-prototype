@@ -15,15 +15,15 @@ pub fn derive(spec: Value, model: Value, state: Value, already_updated_state_thi
     let player_state = already_updated_state_this_tick.get("player").expect("couldnt read player field");
     let player_coords = player_state.get("position").expect("couldnt read position field");
 
-    let player_coords_x: f64 = player_coords.get("x").expect("couldnt read x field")
+    let player_coords_x: f64 = player_coords.get("x").expect("").get("value").expect("couldnt read x field")
         .as_f64()
         .expect("Couldn't convert x to f64");
 
-    let player_coords_y: f64 = player_coords.get("y").expect("couldnt read y field")
+    let player_coords_y: f64 = player_coords.get("y").expect("").get("value").expect("couldnt read y field")
         .as_f64()
         .expect("Couldn't convert y to f64");
 
-    let player_coords_z: f64 = player_coords.get("z").expect("couldnt read z field")
+    let player_coords_z: f64 = player_coords.get("z").expect("").get("value").expect("couldnt read z field")
         .as_f64()
         .expect("Couldn't convert z to f64");
 

@@ -1,4 +1,4 @@
-const base64 = "";
+const base64_promise = fetch("assets/wasm_base64.txt");
 
 function replacer(key, value) {
     if(value instanceof Map) {
@@ -98,7 +98,8 @@ async function wasm_instance_from_b64_string(b64wasm) {
 }
 
 (async () => {
-    let wasm_instance = await wasm_instance_from_b64_string(base64);
+    const base64_string = await (await base64_promise).text();
+    let wasm_instance = await wasm_instance_from_b64_string(base64_string);
     const deriveString = call_wasm_derive(spec, model, state, alreadyUpdatedState, wasm_instance);
     console.log(deriveString);
 })();
